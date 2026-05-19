@@ -523,170 +523,376 @@ function App() {
     }
   };
 
-  const [selectedCategory, setSelectedCategory] = useState("Cuộc sống, lối sống");
-  const [selectedSub, setSelectedSub] = useState(Object.keys(commentData["Cuộc sống, lối sống"])[0]);
-  const [lang, setLang] = useState("en");
-  const [copiedText, setCopiedText] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const mainCategories = Object.keys(commentData);
+  const [activeCategory, setActiveCategory] = useState(mainCategories[0] || '');
+  
+  const subCategories = activeCategory && commentData[activeCategory] ? Object.keys(commentData[activeCategory]) : [];
+  const [activeSub, setActiveSub] = useState(subCategories[0] || '');
 
-  const handleCategoryChange = (cat) => {
-    setSelectedCategory(cat);
-    // Luôn chọn sub-tab đầu tiên (Cool / natural) khi đổi danh mục chính
-    setSelectedSub(Object.keys(commentData[cat])[0]);
+  const [lang, setLang] = useState('en');
+  const [copiedText, setCopiedText] = useState('');
+
+  // --- CÁC STATE PHỤC VỤ TÍNH NĂNG THÊM MỚI ---
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newSubCategoryName, setNewSubCategoryName] = useState('');
+  
+  const [newEnText, setNewEnText] = useState('');
+  const [newEsText, setNewEsText] = useState('');
+  const [newJaText, setNewJaText] = useState('');
+  const [targetCategory, setTargetCategory] = useState(mainCategories[0] || '');
+  const [targetSubCategory, setTargetSubCategory] = useState('');
+
+  // Tự động cập nhật mục sắc thái phụ trong Form khi chọn danh mục chính
+  React.useEffect(() => {
+    if (commentData[targetCategory]) {
+      const subs = Object.keys(commentData[targetCategory]);
+      setTargetSubCategory(subs[0] || '');
+    } else {
+      setTargetSubCategory('');
+    }
+  }, [targetCategory, commentData]);
+
+  // Cập nhật sắc thái phụ đang chọn khi đổi Danh mục chính ở màn hình chính
+  React.useEffect(() => {
+    if (commentData[activeCategory]) {
+      const subs = Object.keys(commentData[activeCategory]);
+      if (!subs.includes(activeSub)) {
+        setActiveSub(subs[0] || '');
+      }
+    }
+  }, [activeCategory, commentData]);
+
+  // --- HÀM XỬ LÝ LOGIC SỰ KIỆN ---
+  const handleAddMainCategory = (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    
+    const catName = newCategoryName.trim();
+    if (commentData[catName]) {
+      alert("Danh mục này đã tồn tại!");
+      return;
+    }
+
+    setCommentData({
+      ...commentData,
+      [catName]: { "Chung / Mặc định": [] }
+    });
+    setActiveCategory(catName);
+    setTargetCategory(catName);
+    setNewCategoryName('');
+  };
+
+  const handleAddSubCategory = (e) => {
+    e.preventDefault();
+    if (!newSubCategoryName.trim()) return;
+
+    const subName = newSubCategoryName.trim();
+    if (!activeCategory) return;
+
+    if (commentData[activeCategory][subName]) {
+      alert("Sắc thái này đã tồn tại trong mục này!");
+      return;
+    }
+
+    setCommentData({
+      ...commentData,
+      [activeCategory]: {
+        ...commentData[activeCategory],
+        [subName]: []
+      }
+    });
+    setActiveSub(subName);
+    setNewSubCategoryName('');
+  };
+
+  const handleAddComment = (e) => {
+    e.preventDefault();
+    if (!newEnText.trim() && !newEsText.trim() && !newJaText.trim()) {
+      alert("Vui lòng nhập ít nhất nội dung của một ngôn ngữ!");
+      return;
+    }
+
+    if (!targetCategory || !targetSubCategory) {
+      alert("Vui lòng chọn hoặc tạo danh mục trước khi thêm câu!");
+      return;
+    }
+
+    const newComment = {
+      en: newEnText.trim() || "N/A",
+      es: newEsText.trim() || "N/A",
+      ja: newJaText.trim() || "N/A"
+    };
+
+    setCommentData({
+      ...commentData,
+      [targetCategory]: {
+        ...commentData[targetCategory],
+        [targetSubCategory]: [
+          ...commentData[targetCategory][targetSubCategory],
+          newComment
+        ]
+      }
+    });
+
+    setNewEnText('');
+    setNewEsText('');
+    setNewJaText('');
+    alert("Đã lưu câu mẫu mới thành công!");
   };
 
   const handleCopy = (text) => {
+    if (!text || text === "N/A") return;
     navigator.clipboard.writeText(text);
     setCopiedText(text);
-    setTimeout(() => setCopiedText(""), 2000);
+    setTimeout(() => setCopiedText(''), 2000);
   };
 
-  const currentPhrases = commentData[selectedCategory]?.[selectedSub] || [];
-  const filteredPhrases = currentPhrases.filter(item => 
-    item[lang]?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const currentItems = (activeCategory && activeSub && commentData[activeCategory])
+    ? commentData[activeCategory][activeSub] || []
+    : [];
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8] text-[#121212] flex font-sans antialiased selection:bg-[#FE2C55]/20">
+    <div className="min-h-screen bg-zinc-50 flex flex-col font-sans antialiased text-zinc-800">
       
-      {/* 1. SIDEBAR DARK CHUẨN TIKTOK */}
-      <aside className="w-72 bg-[#121212] text-white hidden md:flex flex-col shrink-0 shadow-xl">
-        <div className="h-16 flex items-center px-6 border-b border-zinc-800 gap-2 bg-[#000000]">
-          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-black text-black text-xl shadow-[2px_2px_0px_#25F4EE,-2px_-2px_0px_#FE2C55]">
-            ♫
+      {/* HEADER: Tối ưu khoảng cách trên Mobile */}
+      <header className="bg-white border-b border-zinc-200/80 sticky top-0 z-40 px-4 sm:px-6 py-4 shadow-sm backdrop-blur-md bg-white/90">
+        <div className="max-w-7xl mx-auto flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-md shrink-0">
+              <span className="text-white font-black text-xl tracking-wider">A</span>
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900">AI Comment Template</h1>
+              <p className="text-xs text-zinc-500 font-medium">Kho dữ liệu mẫu câu đa ngôn ngữ tối ưu</p>
+            </div>
           </div>
-          <span className="text-lg font-bold tracking-tight text-white">TikTok Comment</span>
-        </div>
 
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-          <div className="px-3 mb-2 text-[11px] font-bold tracking-wider text-zinc-500 uppercase">
-            Danh mục chính
+          {/* CHỌN NGÔN NGỮ: Bo tròn đều và co giãn mượt */}
+          <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200 w-full md:w-auto overflow-x-auto justify-between sm:justify-start">
+            {[
+              { id: 'en', label: 'English 🇺🇸' },
+              { id: 'es', label: 'Español 🇪🇸' },
+              { id: 'ja', label: '日本語 🇯🇵' }
+            ].map(l => (
+              <button
+                key={l.id}
+                onClick={() => setLang(l.id)}
+                className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 whitespace-nowrap ${
+                  lang === l.id 
+                    ? 'bg-white text-black shadow-sm font-extrabold' 
+                    : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                {l.label}
+              </button>
+            ))}
           </div>
-          {Object.keys(commentData).map((cat) => {
-            const isActive = selectedCategory === cat;
-            return (
+        </div>
+      </header>
+
+      {/* KHU VỰC CHỨC NĂNG THÊM MỚI: Tự động đổi từ 2 cột sang 1 cột trên Mobile */}
+      <section className="bg-white border-b border-zinc-200 px-4 sm:px-6 py-5 sm:py-6 shadow-xs">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+          
+          {/* QUẢN LÝ DANH MỤC */}
+          <div className="space-y-3 lg:border-r lg:border-zinc-200 lg:pr-8">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">⚡ Quản lý danh mục</h3>
+            
+            {/* Thêm mục chính */}
+            <form onSubmit={handleAddMainCategory} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="Tên danh mục chính mới..."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="flex-1 bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500 w-full"
+              />
+              <button type="submit" className="bg-black hover:bg-zinc-800 text-white text-xs font-bold px-4 py-2 sm:py-0 rounded-lg transition-all h-10 sm:h-auto whitespace-nowrap">
+                Thêm mục chính
+              </button>
+            </form>
+
+            {/* Thêm sắc thái phụ */}
+            <form onSubmit={handleAddSubCategory} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder={`Thêm sắc thái phụ cho [${activeCategory}]...`}
+                value={newSubCategoryName}
+                onChange={(e) => setNewSubCategoryName(e.target.value)}
+                className="flex-1 bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500 w-full"
+              />
+              <button type="submit" className="bg-zinc-600 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 sm:py-0 rounded-lg transition-all h-10 sm:h-auto whitespace-nowrap">
+                Thêm sắc thái
+              </button>
+            </form>
+          </div>
+
+          {/* TỰ LƯU CÂU MẪU CÁ NHÂN */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">📝 Tự lưu câu mẫu cá nhân</h3>
+            <form onSubmit={handleAddComment} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  placeholder="Câu dịch tiếng Anh (EN)..."
+                  value={newEnText}
+                  onChange={(e) => setNewEnText(e.target.value)}
+                  className="bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-500 w-full"
+                />
+                <input
+                  type="text"
+                  placeholder="Câu dịch tiếng TBN (ES)..."
+                  value={newEsText}
+                  onChange={(e) => setNewEsText(e.target.value)}
+                  className="bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-500 w-full"
+                />
+                <input
+                  type="text"
+                  placeholder="Câu dịch tiếng Nhật (JA)..."
+                  value={newJaText}
+                  onChange={(e) => setNewJaText(e.target.value)}
+                  className="bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-500 w-full"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="text-xs text-zinc-500">Lưu vào:</span>
+                  <select
+                    value={targetCategory}
+                    onChange={(e) => setTargetCategory(e.target.value)}
+                    className="bg-zinc-100 border border-zinc-300 text-xs rounded-lg p-2 focus:outline-none"
+                  >
+                    {mainCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={targetSubCategory}
+                    onChange={(e) => setTargetSubCategory(e.target.value)}
+                    className="bg-zinc-100 border border-zinc-300 text-xs rounded-lg p-2 focus:outline-none"
+                  >
+                    {targetCategory && commentData[targetCategory] && 
+                      Object.keys(commentData[targetCategory]).map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))
+                    }
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-[#FE2C55] hover:bg-[#e02247] text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-all shadow-sm w-full sm:w-auto h-10 sm:h-auto"
+                >
+                  Lưu câu mẫu
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
+      </section>
+
+      {/* CHÍNH LAYOUT: 1 cột trên Mobile, 4 cột trên Máy tính */}
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+        
+        {/* DANH MỤC CHÍNH */}
+        <div className="space-y-3">
+          <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400 pl-1">Danh mục chính</h2>
+          {/* Trên Mobile xếp hàng ngang có thanh cuộn, trên PC xếp cột dọc */}
+          <div className="flex flex-row lg:flex-col gap-1.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none snap-x">
+            {mainCategories.map((cat) => (
               <button
                 key={cat}
-                onClick={() => handleCategoryChange(cat)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? "bg-[#FE2C55] text-white font-bold shadow-md shadow-[#FE2C55]/20"
-                    : "text-zinc-400 hover:bg-zinc-800/60 hover:text-white"
+                onClick={() => setActiveCategory(cat)}
+                className={`text-left px-4 py-2.5 lg:py-3 rounded-xl text-[13px] sm:text-[14px] font-semibold tracking-tight transition-all whitespace-nowrap snap-origin ${
+                  activeCategory === cat
+                    ? 'bg-black text-white font-bold shadow-md'
+                    : 'bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100'
                 }`}
               >
-                <span>{cat}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${isActive ? 'bg-black/20 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                  {Object.keys(commentData[cat]).length}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-      </aside>
-
-      {/* 2. KHU VỰC NỘI DUNG CHÍNH (SÁNG SỦA, CAO CẤP) */}
-      <main className="flex-1 flex flex-col min-w-0">
-        
-        {/* HEADER */}
-        <header className="h-16 bg-white border-b border-zinc-200 px-6 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-sm">
-          <div className="flex-1 max-w-md relative">
-            <input
-              type="text"
-              placeholder="Tìm kiếm nhanh mẫu câu..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#F1F1F2] border border-transparent focus:border-zinc-300 focus:bg-white focus:outline-none rounded-full pl-10 pr-4 py-2 text-sm text-black placeholder-zinc-400 transition-all"
-            />
-            <span className="absolute left-4 top-2.5 text-zinc-400 text-sm">🔍</span>
-          </div>
-
-          <div className="flex items-center gap-1 bg-[#F1F1F2] p-1 rounded-full">
-            {[
-              { id: "en", label: "English", flag: "🇺🇸" },
-              { id: "es", label: "Español", flag: "🇪🇸" },
-              { id: "ja", label: "日本語", flag: "🇯🇵" }
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setLang(item.id)}
-                className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  lang === item.id
-                    ? "bg-white text-black shadow-sm border border-zinc-200"
-                    : "text-zinc-500 hover:text-black"
-                }`}
-              >
-                <span>{item.flag}</span>
-                <span>{item.label}</span>
+                {cat}
               </button>
             ))}
           </div>
-        </header>
-
-        {/* CONTAINER CHỨA DATA */}
-        <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-          
-          {/* Vùng hiển thị toàn bộ 6 Subtabs phong cách cho TẤT CẢ các mục */}
-          <div className="flex flex-wrap gap-2">
-            {Object.keys(commentData[selectedCategory] || {}).map((sub) => (
-              <button
-                key={sub}
-                onClick={() => setSelectedSub(sub)}
-                className={`px-4 py-2 rounded-full text-xs font-bold tracking-wide transition-all ${
-                  selectedSub === sub
-                    ? "bg-[#25F4EE] text-black border border-[#25F4EE] shadow-sm"
-                    : "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50"
-                }`}
-              >
-                #{sub}
-              </button>
-            ))}
-          </div>
-
-          {/* Tiêu đề nhóm */}
-          <div className="border-b border-zinc-200 pb-3">
-            <h2 className="text-xl font-black text-black tracking-tight">{selectedCategory}</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">Sắc thái đang chọn: <span className="font-bold text-[#FE2C55]">{selectedSub}</span></p>
-          </div>
-
-          {/* Danh sách thẻ câu mẫu */}
-          <div className="grid grid-cols-1 gap-3">
-            {filteredPhrases.length > 0 ? (
-              filteredPhrases.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 bg-white rounded-xl border border-zinc-200/80 hover:border-zinc-300 shadow-sm hover:shadow transition-all group"
-                >
-                  <div className="flex-1 pr-4">
-                    <p className="text-zinc-900 text-[15px] font-medium leading-relaxed">
-                      {item[lang]}
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleCopy(item[lang])}
-                    className="bg-[#FE2C55] hover:bg-[#e02247] text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-lg transition-all active:scale-95 shrink-0 shadow-sm"
-                  >
-                    Copy
-                  </button>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-12 bg-white border border-dashed border-zinc-300 rounded-xl">
-                <p className="text-sm text-zinc-400 font-medium">Không tìm thấy mẫu câu nào phù hợp.</p>
-              </div>
-            )}
-          </div>
-
         </div>
 
-        {/* TOAST COPY */}
-        {copiedText && (
-          <div className="fixed bottom-6 right-6 bg-black text-white pl-4 pr-5 py-3 rounded-xl shadow-2xl z-50 border border-zinc-800 flex items-center gap-2 animate-bounce">
-            <span className="text-emerald-400 font-bold">✓</span>
-            <span className="text-xs font-medium">Đã sao chép câu mẫu thành công!</span>
+        {/* CỘT HIỂN THỊ NỘI DUNG */}
+        <div className="lg:col-span-3 space-y-5">
+          
+          {/* SẮC THÁI PHỤ */}
+          <div className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-xs">
+            <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400 mb-3 pl-1">Sắc thái / Phân loại phụ</h2>
+            {/* Thêm thanh cuộn ngang mượt mà trên màn hình nhỏ */}
+            <div className="flex flex-row flex-nowrap lg:flex-wrap gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {subCategories.map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setActiveSub(sub)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    activeSub === sub
+                      ? 'bg-zinc-800 text-white shadow-sm'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  }`}
+                >
+                  {sub}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </main>
+
+          {/* DANH SÁCH CÂU MẪU */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 pl-1">
+              <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                Danh sách mẫu câu ({currentItems.length})
+              </h2>
+              <span className="text-[11px] sm:text-xs font-bold text-zinc-400 bg-zinc-200/60 px-2.5 py-1 rounded-md w-max">
+                {activeCategory} › {activeSub}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {currentItems.length > 0 ? (
+                currentItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className="bg-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center border border-zinc-200/80 hover:border-zinc-300 shadow-sm hover:shadow transition-all gap-4 group"
+                  >
+                    <div className="flex-1">
+                      <p className="text-zinc-900 text-[14px] sm:text-[15px] font-medium leading-relaxed break-words">
+                        {item[lang]}
+                      </p>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleCopy(item[lang])}
+                      className="bg-[#FE2C55] hover:bg-[#e02247] text-white text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-lg transition-all active:scale-95 w-full sm:w-auto text-center shrink-0 shadow-sm"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 bg-white border border-dashed border-zinc-300 rounded-xl">
+                  <p className="text-sm text-zinc-400 font-medium">Không tìm thấy mẫu câu nào phù hợp.</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      {/* TOAST COPY: Căn giữa màn hình dưới trên điện thoại để dễ nhìn */}
+      {copiedText && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 bg-black text-white pl-4 pr-5 py-3 rounded-xl shadow-2xl z-50 border border-zinc-800 flex items-center gap-2 whitespace-nowrap">
+          <span className="text-emerald-400 font-bold">✓</span>
+          <span className="text-xs font-medium">Đã sao chép câu mẫu thành công!</span>
+        </div>
+      )}
     </div>
   );
 }
