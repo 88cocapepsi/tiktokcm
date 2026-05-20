@@ -659,7 +659,7 @@ function App() {
         <div className="max-w-7xl mx-auto flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-md shrink-0">
-              <span className="text-white font-black text-xl tracking-wider">A</span>
+              <span className="text-white font-black text-xl tracking-wider">J</span>
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900">Tiktok Comment </h1>
