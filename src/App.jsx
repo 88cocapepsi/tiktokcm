@@ -662,7 +662,7 @@ function App() {
               <span className="text-white font-black text-xl tracking-wider">A</span>
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900">AI Comment Template</h1>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900">Tiktok Comment </h1>
               <p className="text-xs text-zinc-500 font-medium">Kho dữ liệu mẫu câu đa ngôn ngữ tối ưu</p>
             </div>
           </div>
